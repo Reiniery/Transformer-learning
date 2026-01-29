@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jan 28 21:59:08 2026
+
+@author: reini
+"""
+
 import numpy as np 
 import torch
 import torch.nn as nn
@@ -18,11 +25,6 @@ from sklearn.preprocessing import MinMaxScaler
 
 #----------------Real Data
 
-
-"""
-Cross Attention is how one sequence depens on another. In this case, it shows how BZ,BX,By affect Dst
-To make it useful, but be trained first.
-"""
 def load_omni(file_name):
 
     df = pd.read_csv(file_name, sep='\t')    # load file into dataframe
@@ -53,22 +55,25 @@ def load_omni(file_name):
 
 data = load_omni('omni_data_fmt.csv')[0:5000].dropna(axis=0)
 
-x= np.array(data[['Bx','By','Bz','Dst']]).T
+x_dst= np.array(data[['Dst']]).T #(datapoints, 1)
+x_b= np.array(data[['Bx','By','Bz']]).T #(data points, num of variables)
 
-scaler= MinMaxScaler()
-normalized_data=scaler.fit_transform(x)
+sc_dst= MinMaxScaler()
+sc_b= MinMaxScaler()
+normalized_data_dst=sc_dst.fit_transform(x_dst)
+normalized_data_b=sc_b.fit_transform(x_b)
 
 
 
 
 ####################################################
-X=torch.tensor(normalized_data,dtype=torch.float32) #tokens, features
+X_dst=torch.tensor(normalized_data_dst,dtype=torch.float32) #tokens, features
+X_b=torch.tensor(normalized_data_b,dtype=torch.float32) #tokens, features
+
+d_model = X_dst.shape[-1] #dimension of features
 
 
-d_model = normalized_data.shape[-1] #dimension of features
-
-
-d_k= d_model #will be layer diminsion
+d_k= 500 #will be layer diminsion, must be smaller thannum of data points or "features"
 
 
 w_q=nn.Linear(d_model,d_k)
@@ -77,12 +82,13 @@ w_v= nn.Linear(d_model,d_k)
 
 
 
-q= w_q(X)
-k= w_k(X)
-V= w_v(X)
+q= w_q(X_dst)
+k=w_k(X_b)
+V= w_v(X_b)
+
 s=(q @ k.T)/(d_k**0.5) #how tokens realte to each other
 
-#s/=torch.sqrt(torch.tensor(d_k,dtype=s.dtype) )
+
 
 A= f.softmax(s, dim=-1)
 
